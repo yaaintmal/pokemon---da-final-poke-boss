@@ -1,6 +1,7 @@
 import React from 'react';
 import './styles/arcade-doom.css';
 import { GameStateProvider, useGameState } from './contexts/GameStateContext.jsx';
+import VersionBadge from './components/VersionBadge.jsx';
 import TournamentSetup from './landing/TournamentSetup';
 import GameScreen from './game/GameScreen';
 
@@ -21,6 +22,7 @@ function RouterSwitch() {
 export default function App() {
   return (
     <GameStateProvider>
+      <VersionBadge />
       <RouterSwitch />
     </GameStateProvider>
   );
