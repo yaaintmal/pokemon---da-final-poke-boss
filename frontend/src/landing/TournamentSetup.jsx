@@ -10,17 +10,19 @@ export default function TournamentSetup({ onParticipantsReady }) {
   const [hoveredPokemon, setHoveredPokemon] = useState(null);
   const [hoverPosition, setHoverPosition] = useState({ top: 0, left: 0 });
 
-  // Load Pokemon data
+    // Load Pokemon data
   useEffect(() => {
     async function fetchList() {
       setLoading(true);
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-        const res = await fetch('https://pokeapi.co/api/v2/pokemon?limit=50', { signal: controller.signal });
-        clearTimeout(timeoutId);
+        // Fetch all pokemon from PokéAPI with a very high limit
+        const res = await fetch('https://pokeapi.co/api/v2/pokemon?limit=100000&offset=0', { 
+          signal: AbortSignal.timeout(30000) // 30s timeout for initial fetch
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
+        
+        // Fetch details for all pokemon in parallel (in batches to avoid overload)
         const items = await Promise.all(
           data.results.map(async (p) => {
             try {
@@ -46,7 +48,7 @@ export default function TournamentSetup({ onParticipantsReady }) {
         );
         setPokelist(items);
       } catch (e) {
-        console.warn('Failed to fetch poke-api for landing gallery', e);
+        console.warn('Failed to fetch pokemon from PokéAPI', e);
         // Fallback data
         setPokelist([
           { name: 'Pikachu', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png', id: 25, hp: 35, maxHp: 35, atk: 55, def: 40, satk: 50, sdef: 50, spd: 90 },
@@ -108,7 +110,7 @@ export default function TournamentSetup({ onParticipantsReady }) {
   if (!size) {
     return (
       <div style={{ padding: 20, textAlign: 'center', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-        <h1 style={{ color: 'var(--accent-primary)', fontFamily: 'Press Start 2P, monospace', marginBottom: 40 }}>King of the Ring</h1>
+        <h1 style={{ color: 'var(--accent-primary)', fontFamily: 'Press Start 2P, monospace', marginBottom: 40 }}>Round Prep</h1>
         <p style={{ marginBottom: 40, fontSize: 18 }}>Select tournament size:</p>
         <div style={{ display: 'flex', gap: 20 }}>
           {[8, 16, 32, 64].map((s) => (

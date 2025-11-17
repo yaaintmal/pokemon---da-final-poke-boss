@@ -1,5 +1,5 @@
 import React from 'react';
-import StartMenu from './StartMenu';
+
 import { useGameState } from '../contexts/GameStateContext';
 
 export default function TournamentBracket({ onStartMatch, onStartRound, isFighting = false }) {
@@ -18,10 +18,8 @@ export default function TournamentBracket({ onStartMatch, onStartRound, isFighti
 
   return (
     <div className="tournament-bracket" style={{ padding: 20, background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
-       <h1 style={{ color: 'var(--accent-primary)', fontFamily: 'Press Start 2P, monospace', textAlign: 'center' }}>King of the Ring Bracket</h1>
-       <div style={{ textAlign: 'center', marginBottom: 12 }}>
-         <StartMenu onStartRound={onStartRound} disabled={isFighting} currentRoundLabel={`Round ${state.round}`} />
-       </div>
+
+
       <div className="bracket" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {state.bracket.map((round) => (
           <div key={round.round} className="round" style={{ display: 'flex', gap: 20, marginBottom: 20 }}>

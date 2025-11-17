@@ -10,11 +10,12 @@ import ComicPage from './ComicPage';
 import Celebration from './Celebration';
 import ErrorBoundary from '../components/ErrorBoundary';
 import PokemonImage from '../components/PokemonImage';
-import TournamentOverview from './TournamentOverview';
+
+import CountdownOverlay from './CountdownOverlay';
 
 export default function GameScreen() {
   const { state, advanceBracket, pushDoomQuote } = useGameState();
-  const [phase, setPhase] = useState('bracket'); // 'bracket' -> 'intro-comic' -> 'fight-comic' -> 'result-comic' -> 'celebration' -> 'overview'
+  const [phase, setPhase] = useState('bracket'); // 'bracket' -> 'countdown' -> 'intro-comic' -> 'fight-comic' -> 'result-comic' -> 'celebration'
   const [localLoading, setLocalLoading] = useState(false);
   const [combat, setCombat] = useState({ a: null, b: null });
   const [winner, setWinner] = useState(null);
@@ -23,6 +24,9 @@ export default function GameScreen() {
   const [currentPlayingRound, setCurrentPlayingRound] = useState(null);
   const [winnerAudioUrl, setWinnerAudioUrl] = useState(null);
   const [hasPlayedWinnerSound, setHasPlayedWinnerSound] = useState(false);
+  const [countdownValue, setCountdownValue] = useState(5);
+  const [countdownActive, setCountdownActive] = useState(false);
+  const [countdownMatch, setCountdownMatch] = useState(null);
   const timeoutRef = useRef(null);
 
   // Start the current round: pick the first unfinished match in the active round
@@ -36,9 +40,9 @@ export default function GameScreen() {
     onStartMatch(nextMatch);
   };
 
-  const resolveRound = async () => {
-    const a = combat.a;
-    const b = combat.b;
+  const resolveRound = async (fighterA, fighterB) => {
+    const a = fighterA || combat.a;
+    const b = fighterB || combat.b;
     if (!a || !b) return;
     setLocalLoading(true);
 
@@ -74,6 +78,29 @@ export default function GameScreen() {
     const avatarUrl = await fetchPokemonAvatar(winnerName).catch(() => null);
     pushDoomQuote({ pokemon: winnerName, text, round: state.round, avatarUrl });
 
+    // Save battle to MongoDB
+    try {
+      await fetch('/api/battles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          round: state.round,
+          fighter1: a,
+          fighter2: b,
+          winner: w,
+          loser: l,
+          stats: { 
+            turns, 
+            totalDamageA, 
+            totalDamageB,
+            winnerReason: totalDamageA > totalDamageB ? 'Superior attack' : 'Balanced',
+          },
+        }),
+      });
+    } catch (err) {
+      console.warn('Failed to save battle to MongoDB:', err);
+    }
+
     // Prepare winner audio URL for cheering (if available)
     if (w?.audioUrl) {
       setWinnerAudioUrl(w.audioUrl);
@@ -94,22 +121,18 @@ export default function GameScreen() {
     timeoutRef.current = setTimeout(() => setPhase('fight-comic'), 4000);
     timeoutRef.current = setTimeout(() => setPhase('result-comic'), 8000);
     timeoutRef.current = setTimeout(() => setPhase('celebration'), 12000);
-     timeoutRef.current = setTimeout(() => {
-        advanceBracket(w);
-        setLocalComicData(null);
-        setIsFighting(false);
-        setPhase('overview'); // Show tournament overview after round
-      }, 16000);
+
 
     setLocalLoading(false);
   };
 
   const onStartMatch = (match) => {
     if (!match.a || !match.b || isFighting) return; // Skip invalid matches or if already fighting
-    setCombat({ a: match.a, b: match.b });
-    setIsFighting(true);
-    // Always go to fight phase and wait for user to resolve
-    setPhase('fight');
+    // Start countdown instead of directly starting fight
+    setCountdownMatch(match);
+    setCountdownValue(5);
+    setCountdownActive(true);
+    setPhase('countdown');
   };
 
   const onContinueRound = () => {
@@ -133,23 +156,56 @@ export default function GameScreen() {
     }
   }, [phase, currentPlayingRound]);
 
-  // Auto-start the next fight when a currentMatch becomes available
   useEffect(() => {
-    if (phase === 'bracket' && state.currentMatch && !isFighting) {
-      // Clear any stale comic data and start the next match
-      setLocalComicData(null);
-      onStartMatch(state.currentMatch);
+    if (phase === 'celebration') {
+      // After celebration, advance the bracket
+      const timer = setTimeout(() => {
+        setIsFighting(false);
+        setCountdownActive(false);
+        setCountdownMatch(null);
+        setCombat({ a: null, b: null });
+        advanceBracket(winner);
+        setPhase('bracket');
+      }, 4000); // Wait for celebration to finish
+      return () => clearTimeout(timer);
     }
-  }, [state.currentMatch, phase, isFighting]);
+  }, [phase, winner, advanceBracket]);
 
-  // Auto-start next fight from overview if currentMatch exists
+  // Auto-start the next fight from bracket when available (counts toward no overview path)
   useEffect(() => {
-    if (phase === 'overview' && state.currentMatch && !isFighting) {
+    if (phase === 'bracket' && state.currentMatch && !isFighting && !state.tournamentComplete) {
       // Clear any stale comic data and start the next match
       setLocalComicData(null);
-      onStartMatch(state.currentMatch);
+      // Delay slightly to ensure state is settled
+      const timer = setTimeout(() => {
+        onStartMatch(state.currentMatch);
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [phase, state.currentMatch, isFighting]);
+  }, [state.currentMatch, phase, isFighting, state.tournamentComplete]);
+
+
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (countdownActive && countdownValue > 0) {
+      const timer = setTimeout(() => {
+        setCountdownValue(countdownValue - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (countdownActive && countdownValue === 0) {
+      // Countdown finished, start the fight
+      if (countdownMatch) {
+        setCombat({ a: countdownMatch.a, b: countdownMatch.b });
+        setIsFighting(true);
+        // Immediately resolve the fight with the current fighters
+        setTimeout(() => resolveRound(countdownMatch.a, countdownMatch.b), 500);
+      }
+      // Reset countdown state
+      setCountdownActive(false);
+      setCountdownMatch(null);
+    }
+  }, [countdownActive, countdownValue, countdownMatch]);
 
   useEffect(() => {
     return () => {
@@ -165,23 +221,55 @@ export default function GameScreen() {
     );
   }
 
-  if (phase === 'overview') {
-    const isTournamentComplete = !state.currentMatch && state.bracket.every(r => r.matches.every(m => m.winner));
+  if (state.tournamentComplete) {
     return (
-      <TournamentOverview
-        bracket={state.bracket}
-        round={state.round}
-        onContinue={onContinueRound}
-        onStartNextRound={onStartNextRound}
-        isTournamentComplete={isTournamentComplete}
+      <div className="game-notice">
+        Tournament Complete!
+        <button onClick={endTournament} className="btn btn-primary">
+          Back to Landing
+        </button>
+      </div>
+    );
+  }
+
+  if (phase === 'countdown') {
+    return (
+      <CountdownOverlay
+        value={countdownValue}
+        onDone={() => {
+          // This will be handled by the useEffect when countdownValue reaches 0
+        }}
+        label="Round Starting"
+        fighters={countdownMatch ? [countdownMatch.a, countdownMatch.b] : []}
       />
     );
   }
 
+
+
   if (phase === 'bracket') {
-    // Clear stale data
-    if (localComicData) setLocalComicData(null);
-    return <TournamentBracket onStartMatch={onStartMatch} onStartRound={startCurrentRound} isFighting={isFighting} />;
+    // Check if tournament is actually complete
+    if (state.tournamentComplete) {
+      return <div className="game-notice">Tournament Complete!</div>;
+    }
+    
+    // Auto-start next round if needed
+    if (!state.currentMatch && state.bracket && state.bracket.length > 0) {
+      const currentRound = state.bracket.find(r => r.round === state.round);
+      if (currentRound && currentRound.matches && currentRound.matches.some(m => !m.winner)) {
+        startCurrentRound();
+        return <div className="game-notice">Starting round {state.round}...</div>;
+      }
+    }
+    
+    // Auto-start countdown for next match if available
+    if (state.currentMatch && !isFighting) {
+      onStartMatch(state.currentMatch);
+      return <div className="game-notice">Preparing match...</div>;
+    }
+    
+    // Fallback
+    return <div className="game-notice">Waiting to start...</div>;
   }
 
   if (phase === 'intro-comic') {
@@ -191,7 +279,7 @@ export default function GameScreen() {
     }
     const { a, b } = localComicData;
     const panels = [
-      { content: <div>Round {state.round}<br/>King of the Ring</div> },
+      { content: <div>Round {state.round}</div> },
       { content: <div>{a?.name}<br/><PokemonImage src={a?.image} alt={a?.name} className="comic-pokemon" style={{width:60,height:60}}/><br/>ATK: {a?.atk} DEF: {a?.def}<br/>HP: {a?.hp} SPD: {a?.spd}</div> },
       { content: <div>VS</div> },
       { content: <div>{b?.name}<br/><PokemonImage src={b?.image} alt={b?.name} className="comic-pokemon" style={{width:60,height:60}}/><br/>ATK: {b?.atk} DEF: {b?.def}<br/>HP: {b?.hp} SPD: {b?.spd}</div> }
@@ -226,7 +314,7 @@ export default function GameScreen() {
       { content: <div>{stats?.winnerReason}</div> },
       { content: <div>Attack: {stats?.attackDelta > 0 ? '+' : ''}{stats?.attackDelta}<br/>Defense: {stats?.defenseDelta > 0 ? '+' : ''}{stats?.defenseDelta}<br/>Turns: {stats?.turns}</div> }
     ];
-    return <ComicPage panels={panels} />;
+    return <ComicPage panels={panels} winner={winner} loser={loser} />;
   }
 
   if (phase === 'celebration') {
@@ -245,11 +333,6 @@ export default function GameScreen() {
         </ErrorBoundary>
       )}
       <div className="arena-controls">
-        {phase === 'fight' && (
-          <button className="arcade-btn" onClick={resolveRound} aria-label="Resolve round" title="Resolve round">
-            <span className="arcade-icon" aria-hidden="true">⚡</span> Start Round
-          </button>
-        )}
         {winner && (
           <span className="winner-banner" style={{ color: 'var(--accent-primary)' }}>
             Winner: {typeof winner === 'string' ? winner : winner?.name}

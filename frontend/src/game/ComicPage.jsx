@@ -1,6 +1,24 @@
 import React from 'react';
+import PokemonImage from '../components/PokemonImage';
 
-export default function ComicPage({ panels, onNext }) {
+function StatusTile({ pokemon, status }) {
+  const isWinner = status === 'winner';
+  return (
+    <div
+      className={`status-tile flex flex-col items-center p-3 rounded-lg border-2 ${
+        isWinner
+          ? 'bg-green-800 border-green-400 text-green-100'
+          : 'bg-red-800 border-red-400 text-red-100'
+      } shadow-lg`}
+    >
+      <PokemonImage src={pokemon?.image} alt={pokemon?.name} style={{ width: 48, height: 48 }} />
+      <div className="text-xs font-bold mt-1">{pokemon?.name}</div>
+      <div className="text-lg">{isWinner ? '🏆' : '💀'}</div>
+    </div>
+  );
+}
+
+export default function ComicPage({ panels, onNext, winner, loser }) {
   return (
     <div className="fixed inset-0 z-50 bg-gray-900 bg-opacity-90 grid grid-cols-2 grid-rows-2 gap-4 p-6 text-white font-mono">
       {panels.map((panel, i) => (
@@ -12,6 +30,15 @@ export default function ComicPage({ panels, onNext }) {
           {panel.content}
         </div>
       ))}
+
+      {/* Winner/Loser Status Tiles */}
+      {(winner || loser) && (
+        <div className="absolute top-6 left-6 flex gap-4">
+          {winner && <StatusTile pokemon={winner} status="winner" />}
+          {loser && <StatusTile pokemon={loser} status="loser" />}
+        </div>
+      )}
+
       {onNext && (
         <button
           onClick={onNext}

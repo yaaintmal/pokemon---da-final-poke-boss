@@ -21,6 +21,7 @@ export const GameStateProvider = ({ children }) => {
     tournamentMode: true,
     autoplayEnabled: false,
     comicData: null, // { a, b, winner, stats }
+    tournamentComplete: false,
   });
 
   const startGame = async (participants) => {
@@ -46,6 +47,7 @@ export const GameStateProvider = ({ children }) => {
       bracket,
       currentMatch: matches[0] || null,
       tournamentMode: true,
+      tournamentComplete: false,
     };
     setState(init);
     try {
@@ -57,7 +59,9 @@ export const GameStateProvider = ({ children }) => {
     }
   };
 
-
+  const endTournament = () => {
+    setState((s) => ({ ...s, started: false }));
+  };
 
   const advanceBracket = (winner) => {
     setState((s) => {
@@ -101,7 +105,7 @@ export const GameStateProvider = ({ children }) => {
         currentMatch: nextMatch,
         round: nextRoundNum != null ? nextRoundNum : (nextMatch ? s.round : s.round + 1),
         winner: winnerTeam || null,
-        started: !winnerTeam,
+        tournamentComplete: !!winnerTeam,
       };
       if (nextState.gameId) saveGame(nextState.gameId, nextState).catch(() => {});
       return nextState;
@@ -124,7 +128,7 @@ export const GameStateProvider = ({ children }) => {
     setState((s) => ({ ...s, comicData: data }));
   };
 
-  const value = useMemo(() => ({ state, startGame, advanceBracket, pushDoomQuote, toggleAutoplay, setComicData }), [state]);
+  const value = useMemo(() => ({ state, startGame, advanceBracket, pushDoomQuote, toggleAutoplay, setComicData, endTournament }), [state]);
 
   return <GameStateContext.Provider value={value}>{children}</GameStateContext.Provider>;
 };
