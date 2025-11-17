@@ -1,7 +1,7 @@
 import React from 'react';
 import PokemonImage from '../components/PokemonImage';
 
-export default function CountdownOverlay({ value, onDone, label = "Round Starting", fighters = [] }) {
+export default function CountdownOverlay({ value, onDone, label = "Round Starting", fighters = [], multipliers = { a: 1, b: 1 } }) {
   React.useEffect(() => {
     if (value === 0) {
       // Countdown finished, call onDone
@@ -11,6 +11,8 @@ export default function CountdownOverlay({ value, onDone, label = "Round Startin
 
   const left = fighters[0];
   const right = fighters[1];
+  const multA = multipliers?.a || 1;
+  const multB = multipliers?.b || 1;
 
   return (
     <div
@@ -51,6 +53,16 @@ export default function CountdownOverlay({ value, onDone, label = "Round Startin
             <>
               <PokemonImage src={left.image} alt={left.name} style={{ width: 64, height: 64 }} />
               <div style={{ fontFamily: 'monospace', fontSize: '12px', marginTop: '6px' }}>{left.name}</div>
+              <div style={{ 
+                fontFamily: 'monospace', 
+                fontSize: '14px', 
+                marginTop: '8px', 
+                fontWeight: 'bold',
+                color: multA > 1 ? '#00ff00' : multA < 1 ? '#ff6b6b' : '#ffffff',
+                textShadow: `0 0 10px ${multA > 1 ? '#00ff00' : multA < 1 ? '#ff6b6b' : 'transparent'}`
+              }}>
+                {multA.toFixed(2)}x
+              </div>
             </>
           ) : (
             <div style={{ width: 64, height: 64 }} />
@@ -78,6 +90,16 @@ export default function CountdownOverlay({ value, onDone, label = "Round Startin
             <>
               <PokemonImage src={right.image} alt={right.name} style={{ width: 64, height: 64 }} />
               <div style={{ fontFamily: 'monospace', fontSize: '12px', marginTop: '6px' }}>{right.name}</div>
+              <div style={{ 
+                fontFamily: 'monospace', 
+                fontSize: '14px', 
+                marginTop: '8px', 
+                fontWeight: 'bold',
+                color: multB > 1 ? '#00ff00' : multB < 1 ? '#ff6b6b' : '#ffffff',
+                textShadow: `0 0 10px ${multB > 1 ? '#00ff00' : multB < 1 ? '#ff6b6b' : 'transparent'}`
+              }}>
+                {multB.toFixed(2)}x
+              </div>
             </>
           ) : (
             <div style={{ width: 64, height: 64 }} />

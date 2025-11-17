@@ -9,6 +9,8 @@ export default function TournamentSetup({ onParticipantsReady }) {
   const [selected, setSelected] = useState([]);
   const [hoveredPokemon, setHoveredPokemon] = useState(null);
   const [hoverPosition, setHoverPosition] = useState({ top: 0, left: 0 });
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [teaser, setTeaser] = useState(null);
 
     // Load Pokemon data
   useEffect(() => {
@@ -79,6 +81,10 @@ export default function TournamentSetup({ onParticipantsReady }) {
     if (selected.length >= size) return;
     if (selected.find((p) => p.name === poke.name)) return; // no duplicates
     setSelected([...selected, poke]);
+    
+    // Show teaser message for 2.5 seconds
+    setTeaser(`${poke.name} selected! 🎯`);
+    setTimeout(() => setTeaser(null), 2500);
   };
 
   const removePokemon = (idx) => {
@@ -97,9 +103,16 @@ export default function TournamentSetup({ onParticipantsReady }) {
     setSelected([]);
   };
 
+  // Track global mouse position for overlay
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
   const handleMouseEnter = (poke, event) => {
-    const rect = event.target.getBoundingClientRect();
-    setHoverPosition({ top: rect.top - 250, left: rect.left + rect.width / 2 - 100 });
     setHoveredPokemon(poke);
   };
 
@@ -168,7 +181,28 @@ export default function TournamentSetup({ onParticipantsReady }) {
         )}
       </div>
 
-      <FifaStatsOverlay pokemon={hoveredPokemon} position={hoverPosition} />
+      <FifaStatsOverlay pokemon={hoveredPokemon} mousePosition={mousePosition} />
+      
+      {/* Teaser Message */}
+      {teaser && (
+        <div style={{
+          position: 'fixed',
+          bottom: 30,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'linear-gradient(135deg, var(--accent-primary), #00ff88)',
+          color: 'var(--bg-primary)',
+          padding: '16px 32px',
+          borderRadius: 12,
+          fontSize: 20,
+          fontFamily: 'Press Start 2P, monospace',
+          zIndex: 2000,
+          boxShadow: '0 0 20px rgba(0, 255, 136, 0.6)',
+          animation: 'pulse 0.3s ease-in-out',
+        }}>
+          {teaser}
+        </div>
+      )}
     </div>
   );
 }

@@ -219,9 +219,10 @@ app.get('/api/battles/stats', async (req, res) => {
     }
     
     const totalBattles = await battles.countDocuments();
-    const battles_list = await battles.find({}).limit(100).toArray();
+    const battles_list = await battles.find({}).toArray();
     const winRates = {};
     
+    // Calculate win rates from ALL battles in database
     battles_list.forEach(battle => {
       const winner = battle.winnerName;
       if (!winRates[winner]) {
@@ -241,10 +242,53 @@ app.get('/api/battles/stats', async (req, res) => {
     res.json({
       totalBattles,
       winRates,
-      recentBattles: battles_list.slice(0, 20),
+      recentBattles: battles_list.slice(-20).reverse(),
     });
   } catch (err) {
     console.error('Error fetching battle stats:', err);
+    res.status(500).json({ error: 'Failed to fetch stats', message: err.message });
+  }
+});
+
+// GET /api/pokemon-stats - Get detailed Pokemon statistics (replaces the old endpoint)
+app.get('/api/pokemon-stats', async (req, res) => {
+  try {
+    if (!battles) {
+      return res.status(503).json({ error: 'MongoDB not available' });
+    }
+    
+    const battles_list = await battles.find({}).toArray();
+    const winRates = {};
+    
+    // Calculate stats from all battles
+    battles_list.forEach(battle => {
+      const winner = battle.winnerName;
+      if (!winRates[winner]) {
+        winRates[winner] = { wins: 0, losses: 0, totalDamageDealt: 0, totalDamageTaken: 0 };
+      }
+      winRates[winner].wins++;
+      if (battle.stats?.totalDamageA !== undefined) {
+        winRates[winner].totalDamageDealt += battle.stats.totalDamageA;
+      }
+      
+      const loser = battle.loserName;
+      if (loser && loser !== 'Unknown') {
+        if (!winRates[loser]) {
+          winRates[loser] = { wins: 0, losses: 0, totalDamageDealt: 0, totalDamageTaken: 0 };
+        }
+        winRates[loser].losses++;
+        if (battle.stats?.totalDamageB !== undefined) {
+          winRates[loser].totalDamageTaken += battle.stats.totalDamageB;
+        }
+      }
+    });
+    
+    res.json({
+      totalBattles: battles_list.length,
+      winRates,
+    });
+  } catch (err) {
+    console.error('Error fetching pokemon stats:', err);
     res.status(500).json({ error: 'Failed to fetch stats', message: err.message });
   }
 });

@@ -14,6 +14,10 @@ import PokemonImage from '../components/PokemonImage';
 
 import CountdownOverlay from './CountdownOverlay';
 
+// Get multiplier range from environment variables with defaults
+const MULTIPLIER_MIN = parseFloat(import.meta.env.VITE_STAT_MULTIPLIER_MIN ?? 0.6);
+const MULTIPLIER_MAX = parseFloat(import.meta.env.VITE_STAT_MULTIPLIER_MAX ?? 1.87);
+
 export default function GameScreen() {
   const { state, advanceBracket, pushDoomQuote, endTournament } = useGameState();
   const [phase, setPhase] = useState('bracket'); // 'bracket' -> 'countdown' -> 'intro-comic' -> 'fight-comic' -> 'result-comic' -> 'celebration'
@@ -28,8 +32,42 @@ export default function GameScreen() {
   const [countdownValue, setCountdownValue] = useState(5);
   const [countdownActive, setCountdownActive] = useState(false);
   const [countdownMatch, setCountdownMatch] = useState(null);
+  const [statMultipliers, setStatMultipliers] = useState({ a: 1, b: 1 });
   const timeoutRef = useRef(null);
   const audioRef = useRef(null);
+  const bgMusicRef = useRef(null);
+
+  // Initialize background music on component mount
+  useEffect(() => {
+    const bgAudio = new Audio('/src/sounds/pokemon.mp3');
+    bgAudio.volume = 0.25;
+    bgAudio.loop = true;
+    bgMusicRef.current = bgAudio;
+    
+    // Start playing when game starts
+    if (state?.started) {
+      bgAudio.play().catch(() => {
+        console.warn('Failed to autoplay background music');
+      });
+    }
+    
+    return () => {
+      if (bgMusicRef.current) {
+        bgMusicRef.current.pause();
+      }
+    };
+  }, [state?.started]);
+
+  // Control background music pause/resume based on game state
+  useEffect(() => {
+    if (!bgMusicRef.current) return;
+    
+    if (state?.started && !state?.tournamentComplete) {
+      bgMusicRef.current.play().catch(() => {});
+    } else {
+      bgMusicRef.current.pause();
+    }
+  }, [state?.started, state?.tournamentComplete]);
 
   // Fetch warcry for a Pokemon
   const fetchWarcry = async (pokemonName) => {
@@ -67,6 +105,25 @@ export default function GameScreen() {
     onStartMatch(nextMatch);
   };
 
+  // Generate random multiplier using environment variable range
+  const generateMultiplier = () => {
+    return Math.random() * (MULTIPLIER_MAX - MULTIPLIER_MIN) + MULTIPLIER_MIN;
+  };
+
+  // Apply stat multiplier to pokemon stats
+  const applyMultiplier = (pokemon, multiplier) => {
+    if (!pokemon) return null;
+    return {
+      ...pokemon,
+      hp: Math.round(pokemon.hp * multiplier),
+      atk: Math.round(pokemon.atk * multiplier),
+      def: Math.round(pokemon.def * multiplier),
+      satk: Math.round(pokemon.satk * multiplier),
+      sdef: Math.round(pokemon.sdef * multiplier),
+      spd: Math.round(pokemon.spd * multiplier),
+    };
+  };
+
   const resolveRound = async (fighterA, fighterB) => {
     const a = fighterA || combat.a;
     const b = fighterB || combat.b;
@@ -81,9 +138,11 @@ export default function GameScreen() {
     if (warcryA) await playAudio(warcryA);
     if (warcryB) await playAudio(warcryB);
 
-    // Simple deterministic fight
-    let A = { ...a };
-    let B = { ...b };
+    // Apply stat multipliers to fighters
+    const multA = statMultipliers.a;
+    const multB = statMultipliers.b;
+    let A = applyMultiplier({ ...a }, multA);
+    let B = applyMultiplier({ ...b }, multB);
     let attacker = A.spd >= B.spd ? 'A' : 'B';
     let turns = 0;
     let totalDamageA = 0;
@@ -169,6 +228,12 @@ export default function GameScreen() {
 
   const onStartMatch = (match) => {
     if (!match.a || !match.b || isFighting) return; // Skip invalid matches or if already fighting
+    
+    // Generate random multipliers for this match
+    const multA = generateMultiplier();
+    const multB = generateMultiplier();
+    setStatMultipliers({ a: multA, b: multB });
+    
     // Start countdown instead of directly starting fight
     setCountdownMatch(match);
     setCountdownValue(5);
@@ -291,6 +356,7 @@ export default function GameScreen() {
         }}
         label="Round Starting"
         fighters={countdownMatch ? [countdownMatch.a, countdownMatch.b] : []}
+        multipliers={statMultipliers}
       />
     );
   }

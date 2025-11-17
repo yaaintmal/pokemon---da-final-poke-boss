@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import PokemonImage from '../components/PokemonImage';
+import PokemonStats from './PokemonStats';
 
 export default function FinalWinner({ winner, onRestart }) {
   const [cryUrl, setCryUrl] = useState(null);
@@ -91,6 +92,8 @@ export default function FinalWinner({ winner, onRestart }) {
           </div>
         </div>
 
+        <PokemonStats pokemonName={winner.name} />
+
         <button onClick={onRestart} className="btn btn-arcade">
           PLAY AGAIN
         </button>
@@ -103,7 +106,7 @@ export default function FinalWinner({ winner, onRestart }) {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+          background: linear-gradient(135deg, #27272a 0%, #3f3f46 50%, #27272a 100%);
           position: relative;
           overflow: hidden;
         }
