@@ -197,7 +197,7 @@ export default function ChangelogModal({ isOpen, onClose, changelog }) {
 
         .version-date {
           font-size: 11px;
-          color: #60a5fa;
+          color: #fab760ff;
           font-style: italic;
         }
 
