@@ -5,32 +5,34 @@ export default function Leaderboard({ isOpen, onClose }) {
   const [loading, setLoading] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
 
+  const fetchLeaderboard = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/hall-of-fame?limit=15');
+      if (!res.ok) throw new Error('Failed to fetch leaderboard');
+      const payload = await res.json();
+      const entries = payload.entries || [];
+
+      // Map entries to a unified format used in the UI
+      const mapped = entries.map((e, idx) => ({
+        id: e.id,
+        name: e.name,
+        image: e.image,
+        hof: e.hallOfFame || 0,
+        rank: idx + 1,
+      }));
+
+      setLeaderboard(mapped);
+    } catch (err) {
+      console.warn('Failed to fetch leaderboard:', err);
+      setLeaderboard([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) return;
-    
-    // Fetch leaderboard data
-    async function fetchLeaderboard() {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/pokemon-stats');
-        if (!res.ok) throw new Error('Failed to fetch leaderboard');
-        const data = await res.json();
-        
-        // Sort by wins descending
-        const sorted = data
-          .filter(p => p.wins > 0) // Only show Pokemon with wins
-          .sort((a, b) => b.wins - a.wins)
-          .slice(0, 15); // Top 15
-        
-        setLeaderboard(sorted);
-      } catch (err) {
-        console.warn('Failed to fetch leaderboard:', err);
-        setLeaderboard([]);
-      } finally {
-        setLoading(false);
-      }
-    }
-
     fetchLeaderboard();
   }, [isOpen]);
 
@@ -60,6 +62,7 @@ export default function Leaderboard({ isOpen, onClose }) {
       <div className="leaderboard-container" onClick={(e) => e.stopPropagation()}>
         <div className="leaderboard-header">
           <h2 className="leaderboard-title">🏆 HALL OF LEGENDS 🏆</h2>
+          <button className="refresh-btn" onClick={fetchLeaderboard} title="Refresh leaderboard">🔄</button>
           <button className="close-btn" onClick={onClose}>✕</button>
         </div>
 
@@ -75,25 +78,21 @@ export default function Leaderboard({ isOpen, onClose }) {
                 style={{ transform: `translateY(-${scrollPosition}px)` }}
               >
                 {/* Duplicate entries for seamless loop */}
-                {[...leaderboard, ...leaderboard].map((pokemon, idx) => (
-                  <div key={idx} className="leaderboard-entry">
-                    <div className="rank">
-                      {idx < leaderboard.length ? `#${idx + 1}` : ''}
+                {[...leaderboard, ...leaderboard].map((pokemon, idx) => {
+                  const originalIndex = idx % leaderboard.length;
+                  const rank = leaderboard[originalIndex]?.rank || originalIndex + 1;
+                  return (
+                    <div key={idx} className="leaderboard-entry">
+                      <div className="rank">#{rank}</div>
+                      <div className="pokemon-name">
+                        {pokemon.name || 'Unknown'}
+                      </div>
+                      <div className="stats-group">
+                        <span className="wins">HOF: {pokemon.hof || 0}</span>
+                      </div>
                     </div>
-                    <div className="pokemon-name">
-                      {pokemon.pokemonName || 'Unknown'}
-                    </div>
-                    <div className="stats-group">
-                      <span className="wins">W: {pokemon.wins || 0}</span>
-                      <span className="losses">L: {pokemon.losses || 0}</span>
-                      <span className="winrate">
-                        {pokemon.wins + pokemon.losses > 0
-                          ? ((pokemon.wins / (pokemon.wins + pokemon.losses)) * 100).toFixed(0)
-                          : 0}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -203,6 +202,32 @@ export default function Leaderboard({ isOpen, onClose }) {
         }
 
         .close-btn:active {
+          box-shadow: 0 0 0 #b45309;
+          transform: translateY(4px);
+        }
+
+        .refresh-btn {
+          width: 40px;
+          height: 40px;
+          border: 3px solid #f59e0b;
+          background: #f59e0b;
+          color: #0f172a;
+          font-size: 20px;
+          cursor: pointer;
+          border-radius: 4px;
+          transition: all 0.1s;
+          box-shadow: 0 4px 0 #b45309;
+          margin-right: 10px;
+        }
+
+        .refresh-btn:hover {
+          background: #fbbf24;
+          border-color: #fbbf24;
+          box-shadow: 0 2px 0 #b45309;
+          transform: translateY(2px);
+        }
+
+        .refresh-btn:active {
           box-shadow: 0 0 0 #b45309;
           transform: translateY(4px);
         }

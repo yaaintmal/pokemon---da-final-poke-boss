@@ -11,8 +11,14 @@ export default function PokemonStats({ pokemonName }) {
         if (!res.ok) throw new Error('Failed to fetch stats');
         const data = await res.json();
         
-        // Find this pokemon's stats
-        const pokemonStats = data.winRates?.[pokemonName];
+        // Find this pokemon's stats (case-insensitive key match)
+        const winRates = data.winRates || {};
+        let pokemonStats = null;
+        if (pokemonName && typeof pokemonName === 'string') {
+          const lower = pokemonName.toLowerCase();
+          const foundKey = Object.keys(winRates).find(k => String(k).toLowerCase() === lower);
+          if (foundKey) pokemonStats = winRates[foundKey];
+        }
         setStats(pokemonStats);
       } catch (err) {
         console.warn('Failed to fetch pokemon stats:', err);

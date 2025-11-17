@@ -30,6 +30,27 @@ export default function FinalWinner({ winner, onRestart }) {
     fetchCry();
   }, [winner]);
 
+  // Persist hall of fame increment when a winner appears
+  useEffect(() => {
+    async function persistHallOfFame() {
+      if (!winner || !winner.id) return;
+      try {
+        const res = await fetch('/api/hall-of-fame/increment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: winner.id, name: winner.name }),
+        });
+        console.log('Hall of Fame increment response:', res.status, res.statusText);
+        const data = await res.json();
+        console.log('Hall of Fame increment data:', data);
+      } catch (err) {
+        console.error('Failed to persist hall of fame:', err);
+      }
+    }
+
+    persistHallOfFame();
+  }, [winner]);
+
   useEffect(() => {
     if (cryUrl && !hasPlayedCry && audioRef.current) {
       audioRef.current.play().catch(() => {

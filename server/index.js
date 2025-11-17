@@ -211,6 +211,70 @@ app.post('/api/battles', async (req, res) => {
   }
 });
 
+// POST /api/hall-of-fame/increment - increment hall of fame score for a pokemon
+app.post('/api/hall-of-fame/increment', async (req, res) => {
+  try {
+    if (!db) return res.status(503).json({ error: 'MongoDB not available' });
+
+    const { id, name } = req.body || {};
+    if (!id && !name) return res.status(400).json({ error: 'Missing pokemon id or name' });
+
+    const pokemonCollection = db.collection('pokemon');
+    const query = {};
+    if (id !== undefined && id !== null) query.id = parseInt(id, 10);
+    else query.name = ('' + name).toLowerCase();
+
+    // Use aggregation pipeline to safely initialize and increment hallOfFame
+    const pipeline = [
+      { $match: query },
+      {
+        $set: {
+          hallOfFame: { $add: [{ $ifNull: ['$hallOfFame', 0] }, 1] }
+        }
+      }
+    ];
+
+    // Use updateOne with pipeline instead
+    const result = await pokemonCollection.updateOne(query, [
+      {
+        $set: {
+          hallOfFame: { $add: [{ $ifNull: ['$hallOfFame', 0] }, 1] }
+        }
+      }
+    ]);
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Pokemon not found to increment' });
+    }
+
+    // Fetch the updated document
+    const updated = await pokemonCollection.findOne(query);
+    if (!updated) {
+      return res.status(404).json({ error: 'Pokemon not found after increment' });
+    }
+    res.json({ success: true, pokemon: updated });
+  } catch (err) {
+    console.error('Error incrementing hall of fame:', err);
+    res.status(500).json({ error: 'Failed to increment hall of fame', message: err.message });
+  }
+});
+
+// GET /api/hall-of-fame?limit=15 - return top pokemon by hallOfFame score
+app.get('/api/hall-of-fame', async (req, res) => {
+  try {
+    if (!db) return res.status(503).json({ error: 'MongoDB not available' });
+    const limit = parseInt(req.query.limit, 10) || 15;
+    const pokemonCollection = db.collection('pokemon');
+    const docs = await pokemonCollection.find({ hallOfFame: { $gt: 0 } }).sort({ hallOfFame: -1 }).limit(limit).toArray();
+
+    const entries = docs.map(d => ({ id: d.id, name: d.name, image: d.image, hallOfFame: d.hallOfFame || 0 }));
+    res.json({ entries });
+  } catch (err) {
+    console.error('Error fetching hall of fame:', err);
+    res.status(500).json({ error: 'Failed to fetch hall of fame', message: err.message });
+  }
+});
+
 // GET /api/battles/stats - Get battle statistics
 app.get('/api/battles/stats', async (req, res) => {
   try {
