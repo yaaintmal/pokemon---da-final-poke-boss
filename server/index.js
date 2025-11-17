@@ -2,7 +2,16 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import { MongoClient } from 'mongodb';
-import { getCachedPokemon, prefetchAllPokemon, getAllCachedPokemon, searchPokemon, getRandomPokemon, initializeCache } from './pokemonCache.js';
+import { 
+  setPokemonCollection, 
+  getPokemonById, 
+  getPokemonByName, 
+  getAllPokemon, 
+  searchPokemon, 
+  getRandomPokemon,
+  getTotalPokemonCount
+} from './pokemonRepository.js';
+
 const app = express();
 app.use(bodyParser.json());
 
@@ -11,16 +20,30 @@ const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017';
 const MONGO_DB = process.env.MONGO_DB || 'pokemon_battles';
 let db = null;
 let battles = null;
+let mongoClient = null;
 
 async function initMongo() {
   try {
-    const client = new MongoClient(MONGO_URL);
-    await client.connect();
-    db = client.db(MONGO_DB);
+    mongoClient = new MongoClient(MONGO_URL);
+    await mongoClient.connect();
+    db = mongoClient.db(MONGO_DB);
     battles = db.collection('battles');
+    
+    // Initialize Pokemon collection for repository
+    const pokemonCollection = db.collection('pokemon');
+    setPokemonCollection(pokemonCollection);
+    
+    // Check if pokemon collection has data
+    const count = await getTotalPokemonCount();
+    if (count === 0) {
+      console.warn('Pokemon collection is empty! Run: npm run seed-pokemon');
+    } else {
+      console.log(`✓ Pokemon collection loaded with ${count} Pokemon`);
+    }
+    
     console.log('MongoDB connected');
   } catch (err) {
-    console.warn('MongoDB connection failed, battle stats will not be saved:', err.message);
+    console.warn('MongoDB connection failed:', err.message);
   }
 }
 
@@ -32,34 +55,51 @@ function getRandomIntInclusive(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-// GET /api/pokemon/:nameOrId - get a specific Pokémon from cache
+// GET /api/pokemon/:nameOrId - get a specific Pokémon from MongoDB
 app.get('/api/pokemon/:name', async (req, res) => {
   const name = req.params.name;
   try {
-    const p = await getCachedPokemon(name);
+    // Try by name first, then by ID
+    let p = await getPokemonByName(name);
+    if (!p) {
+      const id = parseInt(name);
+      if (!isNaN(id)) {
+        p = await getPokemonById(id);
+      }
+    }
+    if (!p) {
+      return res.status(404).json({ error: 'Pokémon not found' });
+    }
     res.json(p);
   } catch (err) {
-    res.status(404).json({ error: 'Pokémon not found', message: err.message });
+    res.status(500).json({ error: 'Failed to fetch Pokémon', message: err.message });
   }
 });
 
-// POST /api/random { count: 4, excludeIds: [] } - get random Pokémon
+// POST /api/random - get random Pokémon from MongoDB
 app.post('/api/random', async (req, res) => {
-  const count = parseInt(req.body.count, 10) || 4;
-  const exclude = Array.isArray(req.body.excludeIds) ? req.body.excludeIds.map(Number) : [];
-  const picks = getRandomPokemon(count, exclude);
-  res.json(picks);
+  try {
+    const count = parseInt(req.body.count, 10) || 4;
+    const picks = await getRandomPokemon(count);
+    res.json(picks);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch random Pokemon', message: err.message });
+  }
 });
 
-// GET /api/pokemon-list?search=query - search or list all Pokémon
+// GET /api/pokemon-list?search=query - search or list all Pokémon from MongoDB
 app.get('/api/pokemon-list', async (req, res) => {
-  const search = req.query.search || '';
-  if (search) {
-    const results = searchPokemon(search, 50);
+  try {
+    const search = req.query.search || '';
+    let results;
+    if (search) {
+      results = await searchPokemon(search, 100);
+    } else {
+      results = await getAllPokemon();
+    }
     res.json(results);
-  } else {
-    const all = getAllCachedPokemon();
-    res.json(all);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch Pokemon list', message: err.message });
   }
 });
 
@@ -213,9 +253,6 @@ const server = app.listen(PORT, async () => {
   console.log(`Server listening on http://localhost:${PORT}`);
   // Initialize MongoDB
   await initMongo();
-  // Start prefetching all Pokémon immediately and wait
-  console.log(`Prefetching Pokémon data from PokéAPI...`);
-  await initializeCache();
   console.log(`Ready to serve!`);
 });
 

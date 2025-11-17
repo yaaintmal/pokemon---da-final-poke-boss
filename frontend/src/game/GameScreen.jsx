@@ -1,20 +1,21 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useGameState } from '../contexts/GameStateContext';
 import Arena from './Arena';
-import FifaLineup from './FifaLineup';
-import TournamentBracket from './TournamentBracket';
+// import FifaLineup from './FifaLineup';
+// import TournamentBracket from './TournamentBracket';
 import FightAnimation from './FightAnimation';
 import { narrateRoundWinner } from '../util/narration';
 import { fetchPokemonAvatar } from '../util/avatar';
 import ComicPage from './ComicPage';
 import Celebration from './Celebration';
+import FinalWinner from './FinalWinner';
 import ErrorBoundary from '../components/ErrorBoundary';
 import PokemonImage from '../components/PokemonImage';
 
 import CountdownOverlay from './CountdownOverlay';
 
 export default function GameScreen() {
-  const { state, advanceBracket, pushDoomQuote } = useGameState();
+  const { state, advanceBracket, pushDoomQuote, endTournament } = useGameState();
   const [phase, setPhase] = useState('bracket'); // 'bracket' -> 'countdown' -> 'intro-comic' -> 'fight-comic' -> 'result-comic' -> 'celebration'
   const [localLoading, setLocalLoading] = useState(false);
   const [combat, setCombat] = useState({ a: null, b: null });
@@ -28,6 +29,32 @@ export default function GameScreen() {
   const [countdownActive, setCountdownActive] = useState(false);
   const [countdownMatch, setCountdownMatch] = useState(null);
   const timeoutRef = useRef(null);
+  const audioRef = useRef(null);
+
+  // Fetch warcry for a Pokemon
+  const fetchWarcry = async (pokemonName) => {
+    try {
+      const res = await fetch(`/api/pokemon/${pokemonName.toLowerCase()}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data?.cries?.latest || data?.cries?.legacy || null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Play audio with promise-based approach
+  const playAudio = async (url) => {
+    if (!url) return;
+    return new Promise((resolve) => {
+      const audio = new Audio(url);
+      audio.onended = resolve;
+      audio.onerror = resolve;
+      audio.play().catch(resolve);
+      // Timeout after 5 seconds
+      setTimeout(resolve, 5000);
+    });
+  };
 
   // Start the current round: pick the first unfinished match in the active round
   const startCurrentRound = () => {
@@ -45,6 +72,14 @@ export default function GameScreen() {
     const b = fighterB || combat.b;
     if (!a || !b) return;
     setLocalLoading(true);
+
+    // Play opening warcries for both fighters
+    const warcryA = await fetchWarcry(a.name);
+    const warcryB = await fetchWarcry(b.name);
+    
+    // Play warcries in sequence
+    if (warcryA) await playAudio(warcryA);
+    if (warcryB) await playAudio(warcryB);
 
     // Simple deterministic fight
     let A = { ...a };
@@ -77,6 +112,12 @@ export default function GameScreen() {
     }
     const avatarUrl = await fetchPokemonAvatar(winnerName).catch(() => null);
     pushDoomQuote({ pokemon: winnerName, text, round: state.round, avatarUrl });
+
+    // Play winner's warcry
+    const winnerWarcry = await fetchWarcry(winnerName);
+    if (winnerWarcry) {
+      await playAudio(winnerWarcry);
+    }
 
     // Save battle to MongoDB
     try {
@@ -218,6 +259,15 @@ export default function GameScreen() {
       <div className="game-notice">
         <p>Build two teams on the landing page, then start the match.</p>
       </div>
+    );
+  }
+
+  if (state.tournamentComplete && state.winner) {
+    return (
+      <FinalWinner 
+        winner={state.winner} 
+        onRestart={endTournament}
+      />
     );
   }
 
