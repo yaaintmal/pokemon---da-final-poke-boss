@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import PokemonImage from '../components/PokemonImage';
 import PokemonStats from './PokemonStats';
+import Leaderboard from './Leaderboard';
 
 export default function FinalWinner({ winner, onRestart }) {
   const [cryUrl, setCryUrl] = useState(null);
   const [hasPlayedCry, setHasPlayedCry] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const audioRef = React.useRef(null);
 
   useEffect(() => {
@@ -94,10 +96,17 @@ export default function FinalWinner({ winner, onRestart }) {
 
         <PokemonStats pokemonName={winner.name} />
 
-        <button onClick={onRestart} className="btn btn-arcade">
-          PLAY AGAIN
-        </button>
+        <div className="button-group">
+          <button onClick={() => setShowLeaderboard(true)} className="btn btn-arcade btn-leaderboard">
+            HALL OF LEGENDS
+          </button>
+          <button onClick={onRestart} className="btn btn-arcade">
+            PLAY AGAIN
+          </button>
+        </div>
       </div>
+
+      <Leaderboard isOpen={showLeaderboard} onClose={() => setShowLeaderboard(false)} />
 
       <style jsx>{`
         .final-winner-screen {
@@ -247,6 +256,31 @@ export default function FinalWinner({ winner, onRestart }) {
           font-weight: 900;
           color: #16a34a;
           text-shadow: 0 0 10px rgba(22, 163, 74, 0.5);
+        }
+
+        .button-group {
+          display: flex;
+          gap: 15px;
+          justify-content: center;
+          flex-wrap: wrap;
+          margin-top: 20px;
+        }
+
+        .btn-leaderboard {
+          background: #0ff;
+          color: #0f172a;
+          border-color: #0ff;
+          padding: 12px 26px;
+          font-weight: 800;
+          text-shadow: 0 0 6px #00ffd0;
+          box-shadow: 0 4px 0 #0099cc, 0 6px 10px rgba(0, 255, 255, 0.25);
+        }
+
+        .btn-leaderboard:hover {
+          background: #00ffff;
+          border-color: #00ffff;
+          transform: translateY(2px);
+          box-shadow: 0 2px 0 #0099cc, 0 4px 6px rgba(0, 255, 255, 0.25);
         }
 
         .btn-arcade {

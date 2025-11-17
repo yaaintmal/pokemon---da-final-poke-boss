@@ -39,7 +39,7 @@ export default function GameScreen() {
 
   // Initialize background music on component mount
   useEffect(() => {
-    const bgAudio = new Audio('/src/sounds/pokemon.mp3');
+    const bgAudio = new Audio('/sounds/pokemon.mp3');
     bgAudio.volume = 0.25;
     bgAudio.loop = true;
     bgMusicRef.current = bgAudio;
