@@ -1,0 +1,19 @@
+{
+  "name": "wbs",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "playground/index.js",
+  "scripts": {
+    "start": "node playground/index.js",
+    "start:server": "node server/index.js",
+    "start:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run start:server\" \"npm run start:frontend\""
+  },
+  "dependencies": {
+    "pokedex-promise-v2": "^4.2.1",
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2",
+    "concurrently": "^8.0.1"
+  }
+}

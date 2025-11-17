@@ -1,0 +1,22 @@
+.pokemon-list {
+  list-style: none; /* Removes default bullets */
+  padding: 0; /* Removes default padding */
+  margin: 0; /* Removes default margin */
+}
+
+.pokemon-list li {
+  position: relative;
+  content: "⭐";
+  padding-left: 20px; /* Adjust this value for spacing */
+}
+
+.pokemon-list li::before {
+  content: "⭐"; /* Your custom character here */
+  position: absolute;
+  left: 0;
+}
+.pokemon-list-marker li::marker {
+  content: "⭐ "; /* Adds a space after the character */
+  font-size: 1.2em;
+  color: gold;
+}

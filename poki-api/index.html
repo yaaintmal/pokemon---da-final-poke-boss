@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pokemon Cards</title>
+    <!-- Pokemon Favicon using a svg under https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Pok%C3%A9_Ball_icon.svg/512px-Pok%C3%A9_Ball_icon.svg.png?20161023215848 -->
+    <link
+      rel="icon"
+      href="https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Pok%C3%A9_Ball_icon.svg/512px-Pok%C3%A9_Ball_icon.svg.png?20161023215848"
+      alt="Pokemon Favicon"
+    />
+    <!-- <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎉</text></svg>"
+    /> -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  </head>
+  <body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4">
+      <h1 class="text-3xl font-bold mb-4">Pokémon Cards</h1>
+      <div
+        id="pokemon-container"
+        class="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-5 gap-4"
+      >
+        c
+        <script src="./js/poki-api.js"></script>
+        <!-- Pokemon cards will be populated here -->
+      </div>
+    </div>
+    <!--- audio source with 50% volume --->
+    <audio src="./static/pokemon.mp3" autoplay loop volume="0.5"></audio>
+
+    <!-- <audio autoplay loop volume="0.2">
+      <source src="pokemon.mp3" type="audio/mpeg" />
+      <source src="pokemon.ogg" type="audio/ogg" />
+      Your browser does not support the audio element.
+    </audio> -->
+  </body>
+</html>
