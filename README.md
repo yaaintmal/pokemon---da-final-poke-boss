@@ -161,7 +161,7 @@ npm run dev
 - **Volume**: 100% (full volume for impact)
 
 ### Background Music
-- **File**: `frontend/src/sounds/pokemon.mp3`
+- **File**: `frontend/public/sounds/pokemon.mp3`
 - **Volume**: 25% (0.25) - subtle background presence
 - **Loop**: Continuous throughout tournament, pauses when complete
 - **Control**: Auto-plays on game start, pauses on completion
@@ -308,7 +308,7 @@ cd server && npm run seed-pokemon
 - Browser autoplay policies may require user interaction first
 
 ### Background Music Not Playing
-- Verify `frontend/src/sounds/pokemon.mp3` exists
+- Verify `frontend/public/sounds/pokemon.mp3` exists
 - Check browser's autoplay policy (may require user click)
 - Check browser console for audio errors
 
