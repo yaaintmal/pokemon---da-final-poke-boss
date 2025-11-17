@@ -1,35 +1,30 @@
 #!/usr/bin/env node
-
-// imports
 import express from 'express';
 import bodyParser from 'body-parser';
-import cors from 'cors';
-// ofc there's already a small github repo for easy use of pokeapi
-import Pokedex from 'pokedex-promise-v2';
-
-const P = new Pokedex();
-
+import { MongoClient } from 'mongodb';
+import { getCachedPokemon, prefetchAllPokemon, getAllCachedPokemon, searchPokemon, getRandomPokemon, initializeCache } from './pokemonCache.js';
 const app = express();
-// Define CORS options to allow only frontend on port 3003
-const corsOptions = {
-  origin: 'http://localhost:3003', // Only allow frontend
-  methods: ['GET', 'POST'], // Only allow safe methods used by your API
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'Accept',
-    'Origin',
-    'X-Requested-With'
-  ], // Only allow necessary headers
-  exposedHeaders: [], // No custom headers exposed
-  credentials: false, // Do not allow cookies or credentials by default
-  maxAge: 0, // Disable preflight caching for stricter control
-  optionsSuccessStatus: 200 // For legacy browser support
-};
-app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
-const PORT = process.env.PORT || 5000;
+// MongoDB connection
+const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017';
+const MONGO_DB = process.env.MONGO_DB || 'pokemon_battles';
+let db = null;
+let battles = null;
+
+async function initMongo() {
+  try {
+    const client = new MongoClient(MONGO_URL);
+    await client.connect();
+    db = client.db(MONGO_DB);
+    battles = db.collection('battles');
+    console.log('MongoDB connected');
+  } catch (err) {
+    console.warn('MongoDB connection failed, battle stats will not be saved:', err.message);
+  }
+}
+
+const PORT = process.env.PORT || 3001;
 
 function getRandomIntInclusive(min, max) {
   min = Math.ceil(min);
@@ -37,49 +32,35 @@ function getRandomIntInclusive(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function formatPokemon(res) {
-  const stats = {};
-  res.stats.forEach(s => { stats[s.stat.name] = s.base_stat; });
-  return {
-    id: res.id,
-    name: res.name,
-    height: res.height,
-    weight: res.weight,
-    sprites: res.sprites,
-    stats,
-  };
-}
-
-// checking name of the pokemon
-// GET /api/pokemon/:nameOrId
+// GET /api/pokemon/:nameOrId - get a specific Pokémon from cache
 app.get('/api/pokemon/:name', async (req, res) => {
   const name = req.params.name;
   try {
-    const p = await P.getPokemonByName(name.toString().toLowerCase());
-    res.json(formatPokemon(p));
+    const p = await getCachedPokemon(name);
+    res.json(p);
   } catch (err) {
     res.status(404).json({ error: 'Pokémon not found', message: err.message });
   }
 });
 
-
-// we need a pokemon array for the cpu... we won't cheat, we randomize to praise the WHOLY RNGeZuZ 🙌🏽
-// POST /api/random { count: 4, excludeIds: [] }
+// POST /api/random { count: 4, excludeIds: [] } - get random Pokémon
 app.post('/api/random', async (req, res) => {
   const count = parseInt(req.body.count, 10) || 4;
   const exclude = Array.isArray(req.body.excludeIds) ? req.body.excludeIds.map(Number) : [];
-  const picks = [];
-  while (picks.length < count) {
-    const id = getRandomIntInclusive(1, 898);
-    if (exclude.includes(id) || picks.find(p => p.id === id)) continue;
-    try {
-      const p = await P.getPokemonByName(id);
-      picks.push(formatPokemon(p));
-    } catch (e) {
-      // ignore and retry
-    }
-  }
+  const picks = getRandomPokemon(count, exclude);
   res.json(picks);
+});
+
+// GET /api/pokemon-list?search=query - search or list all Pokémon
+app.get('/api/pokemon-list', async (req, res) => {
+  const search = req.query.search || '';
+  if (search) {
+    const results = searchPokemon(search, 50);
+    res.json(results);
+  } else {
+    const all = getAllCachedPokemon();
+    res.json(all);
+  }
 });
 
 // DOOM-themed quote prompts (famous DOOM game quotes) >> posted after each round :3
@@ -138,8 +119,104 @@ app.post('/api/notes', async (req, res) => {
   }
 });
 
-const server = app.listen(PORT, () => {
+// POST /api/battles - Save a battle result to MongoDB
+app.post('/api/battles', async (req, res) => {
+  try {
+    if (!battles) {
+      return res.status(503).json({ error: 'MongoDB not available' });
+    }
+    
+    const { round, fighter1, fighter2, winner, loser, stats, timestamp } = req.body;
+    
+    if (!fighter1 || !fighter2 || !winner) {
+      return res.status(400).json({ error: 'Missing required fields: fighter1, fighter2, winner' });
+    }
+    
+    const battle = {
+      round: round || 0,
+      fighter1: {
+        name: fighter1.name,
+        id: fighter1.id,
+        hp: fighter1.hp,
+        atk: fighter1.atk,
+        def: fighter1.def,
+        satk: fighter1.satk,
+        sdef: fighter1.sdef,
+        spd: fighter1.spd,
+      },
+      fighter2: {
+        name: fighter2.name,
+        id: fighter2.id,
+        hp: fighter2.hp,
+        atk: fighter2.atk,
+        def: fighter2.def,
+        satk: fighter2.satk,
+        sdef: fighter2.sdef,
+        spd: fighter2.spd,
+      },
+      winnerName: winner.name,
+      winnerId: winner.id,
+      loserName: loser?.name || 'Unknown',
+      loserId: loser?.id || null,
+      stats: stats || {},
+      timestamp: timestamp || new Date(),
+      createdAt: new Date(),
+    };
+    
+    const result = await battles.insertOne(battle);
+    res.json({ success: true, id: result.insertedId, battle });
+  } catch (err) {
+    console.error('Error saving battle:', err);
+    res.status(500).json({ error: 'Failed to save battle', message: err.message });
+  }
+});
+
+// GET /api/battles/stats - Get battle statistics
+app.get('/api/battles/stats', async (req, res) => {
+  try {
+    if (!battles) {
+      return res.status(503).json({ error: 'MongoDB not available' });
+    }
+    
+    const totalBattles = await battles.countDocuments();
+    const battles_list = await battles.find({}).limit(100).toArray();
+    const winRates = {};
+    
+    battles_list.forEach(battle => {
+      const winner = battle.winnerName;
+      if (!winRates[winner]) {
+        winRates[winner] = { wins: 0, losses: 0 };
+      }
+      winRates[winner].wins++;
+      
+      const loser = battle.loserName;
+      if (loser && loser !== 'Unknown') {
+        if (!winRates[loser]) {
+          winRates[loser] = { wins: 0, losses: 0 };
+        }
+        winRates[loser].losses++;
+      }
+    });
+    
+    res.json({
+      totalBattles,
+      winRates,
+      recentBattles: battles_list.slice(0, 20),
+    });
+  } catch (err) {
+    console.error('Error fetching battle stats:', err);
+    res.status(500).json({ error: 'Failed to fetch stats', message: err.message });
+  }
+});
+
+const server = app.listen(PORT, async () => {
   console.log(`Server listening on http://localhost:${PORT}`);
+  // Initialize MongoDB
+  await initMongo();
+  // Start prefetching all Pokémon immediately and wait
+  console.log(`Prefetching Pokémon data from PokéAPI...`);
+  await initializeCache();
+  console.log(`Ready to serve!`);
 });
 
 server.on('error', (err) => {
