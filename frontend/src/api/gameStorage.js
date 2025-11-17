@@ -1,4 +1,4 @@
-export const BACKEND_BASE = 'http://localhost:5000';
+export const BACKEND_BASE = 'http://localhost:3006';
 
 export async function createGame(initialState) {
   try {

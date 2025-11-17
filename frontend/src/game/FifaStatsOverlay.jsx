@@ -31,7 +31,7 @@ export default function FifaStatsOverlay({ pokemon, mousePosition }) {
 
   return (
     <div className="fifa-overlay" style={overlayStyle}>
-      <div className="overlay-card" style={{ background: 'linear-gradient(135deg, #007bff, #0056b3)', borderRadius: 12, padding: 16, color: '#fff', boxShadow: '0 8px 16px rgba(0,0,0,0.5)', minWidth: 200 }}>
+      <div className="overlay-card" style={{ background: 'linear-gradient(135deg, #fdc733f1, #e4a92ccc)', borderRadius: 12, padding: 16, color: '#fff', boxShadow: '0 8px 16px rgba(0,0,0,0.5)', minWidth: 200 }}>
         <h3 style={{ margin: 0, fontSize: 18, textAlign: 'center' }}>{pokemon.name}</h3>
         <img src={pokemon.image || '/pokemon-placeholder.png'} alt={pokemon.name} style={{ width: 80, height: 80, borderRadius: '50%', display: 'block', margin: '8px auto' }} />
         <div className="stats-list" style={{ marginTop: 12 }}>

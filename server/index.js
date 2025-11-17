@@ -20,16 +20,17 @@ app.use(bodyParser.json());
 const corsOptions = {
   origin: function (origin, callback) {
     const allowedOrigins = [
-      'http://localhost:3003',
-      'http://localhost:3009',
-      'http://localhost:5173', // Vite dev server default port
-      'http://localhost:3001',  // Local backend
+      'https://pokeboss.malick.cloud',      // Official frontend
+      'https://api-pb.malick.cloud',        // Official API
+      'http://localhost:3006',              // Local backend (optional)
+      'http://localhost:3003',              // Local frontend dev
+      'http://localhost:5173'               // Vite dev server
     ];
-    
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.log('CORS blocked origin:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
