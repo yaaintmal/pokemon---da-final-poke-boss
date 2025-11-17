@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import express from 'express';
 import bodyParser from 'body-parser';
+import cors from 'cors';
 import { MongoClient } from 'mongodb';
 import { 
   setPokemonCollection, 
@@ -14,6 +15,30 @@ import {
 
 const app = express();
 app.use(bodyParser.json());
+
+// CORS configuration - allow frontend on ports 3003 and 3009, backend on port 3006
+const corsOptions = {
+  origin: function (origin, callback) {
+    const allowedOrigins = [
+      'http://localhost:3003',
+      'http://localhost:3009',
+      'http://localhost:5173', // Vite dev server default port
+      'http://localhost:3001',  // Local backend
+    ];
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
 
 // MongoDB connection
 const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017';

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { fetchPokemon, saveBattle } from '../util/api';
 import { useGameState } from '../contexts/GameStateContext';
 import Arena from './Arena';
 // import FifaLineup from './FifaLineup';
@@ -72,9 +73,8 @@ export default function GameScreen() {
   // Fetch warcry for a Pokemon
   const fetchWarcry = async (pokemonName) => {
     try {
-      const res = await fetch(`/api/pokemon/${pokemonName.toLowerCase()}`);
-      if (!res.ok) return null;
-      const data = await res.json();
+      const data = await fetchPokemon(pokemonName);
+      if (!data) return null;
       return data?.cries?.latest || data?.cries?.legacy || null;
     } catch {
       return null;
@@ -180,22 +180,18 @@ export default function GameScreen() {
 
     // Save battle to MongoDB
     try {
-      await fetch('/api/battles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          round: state.round,
-          fighter1: a,
-          fighter2: b,
-          winner: w,
-          loser: l,
-          stats: { 
-            turns, 
-            totalDamageA, 
-            totalDamageB,
-            winnerReason: totalDamageA > totalDamageB ? 'Superior attack' : 'Balanced',
-          },
-        }),
+      await saveBattle({
+        round: state.round,
+        fighter1: a,
+        fighter2: b,
+        winner: w,
+        loser: l,
+        stats: { 
+          turns, 
+          totalDamageA, 
+          totalDamageB,
+          winnerReason: totalDamageA > totalDamageB ? 'Superior attack' : 'Balanced',
+        },
       });
     } catch (err) {
       console.warn('Failed to save battle to MongoDB:', err);

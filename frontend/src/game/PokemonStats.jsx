@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { fetchPokemonStats } from '../util/api';
 
 export default function PokemonStats({ pokemonName }) {
   const [stats, setStats] = useState(null);
@@ -7,9 +8,7 @@ export default function PokemonStats({ pokemonName }) {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const res = await fetch('/api/pokemon-stats');
-        if (!res.ok) throw new Error('Failed to fetch stats');
-        const data = await res.json();
+        const data = await fetchPokemonStats();
         
         // Find this pokemon's stats (case-insensitive key match)
         const winRates = data.winRates || {};

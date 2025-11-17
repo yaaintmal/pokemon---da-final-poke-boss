@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
+import { fetchHallOfFame } from '../util/api';
 
 export default function Leaderboard({ isOpen, onClose }) {
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(false);
   const [scrollPosition, setScrollPosition] = useState(0);
+  const [error, setError] = useState(null);
 
   const fetchLeaderboard = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await fetch('/api/hall-of-fame?limit=15');
-      if (!res.ok) throw new Error('Failed to fetch leaderboard');
-      const payload = await res.json();
+      const payload = await fetchHallOfFame(15);
       const entries = payload.entries || [];
 
       // Map entries to a unified format used in the UI
@@ -25,11 +26,16 @@ export default function Leaderboard({ isOpen, onClose }) {
       setLeaderboard(mapped);
     } catch (err) {
       console.warn('Failed to fetch leaderboard:', err);
+      setError(err.message);
       setLeaderboard([]);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -67,7 +73,9 @@ export default function Leaderboard({ isOpen, onClose }) {
         </div>
 
         <div className="leaderboard-content">
-          {loading ? (
+          {error ? (
+            <div className="empty-text">Error loading leaderboard: {error}</div>
+          ) : loading ? (
             <div className="loading-text">Loading legendary stats...</div>
           ) : leaderboard.length === 0 ? (
             <div className="empty-text">No battles recorded yet. Create history!</div>

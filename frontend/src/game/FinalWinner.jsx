@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { incrementHallOfFame } from '../util/api';
 import PokemonImage from '../components/PokemonImage';
 import PokemonStats from './PokemonStats';
 import Leaderboard from './Leaderboard';
@@ -35,13 +36,8 @@ export default function FinalWinner({ winner, onRestart }) {
     async function persistHallOfFame() {
       if (!winner || !winner.id) return;
       try {
-        const res = await fetch('/api/hall-of-fame/increment', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: winner.id, name: winner.name }),
-        });
-        console.log('Hall of Fame increment response:', res.status, res.statusText);
-        const data = await res.json();
+        console.log('Winner object before API call:', winner);
+        const data = await incrementHallOfFame(winner.id, winner.name);
         console.log('Hall of Fame increment data:', data);
       } catch (err) {
         console.error('Failed to persist hall of fame:', err);
@@ -63,6 +59,8 @@ export default function FinalWinner({ winner, onRestart }) {
   if (!winner) {
     return <div className="game-notice">No winner found</div>;
   }
+
+  console.log('Winner object before API call:', winner);
 
   return (
     <div className="final-winner-screen">
