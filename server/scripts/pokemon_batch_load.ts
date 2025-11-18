@@ -1,37 +1,42 @@
 #!/usr/bin/env node
 
 // Batch loader for preloading all ~1000 Pokémon into MongoDB
-// Run with: node scripts/pokemon_batch_load.js
+// Run with: node scripts/pokemon_batch_load.ts
 
 import { MongoClient } from 'mongodb';
-import axios from 'axios';
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017';
-const DB_NAME = 'pokedb';
-const COL = 'pokemons';
-const POKE_API = 'https://pokeapi.co/api/v2/pokemon/';
-const BATCH_SIZE = 50;
-const CONCURRENCY = 5;
-const TOTAL = 1000; // Total Pokémon to preload
+const MONGO_URI: string = process.env.MONGO_URI || 'mongodb://localhost:27017';
+const DB_NAME: string = 'pokedb';
+const COL: string = 'pokemons';
+const POKE_API: string = 'https://pokeapi.co/api/v2/pokemon/';
+const BATCH_SIZE: number = 50;
+const CONCURRENCY: number = 5;
+const TOTAL: number = 1000; // Total Pokémon to preload
 
 // Helper function to sleep between batches
-function sleep(ms) {
+function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // Fetch and normalize a single Pokémon
-async function fetchPokemon(id) {
+async function fetchPokemon(id: number): Promise<any | null> {
   try {
     const url = `${POKE_API}${id}`;
-    const res = await axios.get(url, { timeout: 10000 });
-    const d = res.data;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
 
     // Extract stats
-    const stats = {};
-    (d.stats || []).forEach(s => { stats[s.stat.name] = s.base_stat; });
+    const stats: Record<string, number> = {};
+    (d.stats || []).forEach((s: any) => { stats[s.stat.name] = s.base_stat; });
 
     // Types
-    const types = (d.types || []).map(t => t.type?.name).filter(Boolean);
+    const types = (d.types || []).map((t: any) => t.type?.name).filter(Boolean);
 
     // Cry URLs (if available)
     const latest = d.cries?.latest || null;
@@ -57,13 +62,13 @@ async function fetchPokemon(id) {
       cachedAt: new Date(),
     };
   } catch (error) {
-    console.warn(`Failed to fetch Pokémon ${id}:`, error.message);
+    console.warn(`Failed to fetch Pokémon ${id}:`, error instanceof Error ? error.message : String(error));
     return null;
   }
 }
 
 // Main batch loading function
-async function main() {
+async function main(): Promise<void> {
   console.log('Starting Pokémon batch load...');
   console.log(`Target: ${TOTAL} Pokémon`);
   console.log(`Batch size: ${BATCH_SIZE}, Concurrency: ${CONCURRENCY}`);
@@ -111,7 +116,7 @@ async function main() {
         console.log(`✓ Upserted ${validResults.length} Pokémon`);
         processed += validResults.length;
       } catch (error) {
-        console.error('Bulk write error:', error.message);
+        console.error('Bulk write error:', error instanceof Error ? error.message : String(error));
         errors += validResults.length;
       }
     }

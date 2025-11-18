@@ -1,20 +1,22 @@
 /**
- * pokemonCache.js - In-memory cache for all Pokémon from PokéAPI
+ * pokemonCache.ts - In-memory cache for all Pokémon from PokéAPI
  * Fetches and stores up to ~1025 Pokémon on server startup with batching
  */
+
+import { Pokemon } from './types.js';
 
 const POKE_API_BASE = 'https://pokeapi.co/api/v2/pokemon';
 
 // In-memory cache
-let pokemonCache = {};
-let pokemonArray = []; // Keep as array for easy iteration
+let pokemonCache: Record<string, Pokemon> = {};
+let pokemonArray: Pokemon[] = []; // Keep as array for easy iteration
 let isCacheFetching = false;
-let cacheFetchPromise = null;
+let cacheFetchPromise: Promise<Pokemon[]> | null = null;
 
 /**
  * Fetch and cache a single Pokémon by name or ID
  */
-export async function getCachedPokemon(nameOrId) {
+export async function getCachedPokemon(nameOrId: string | number): Promise<Pokemon> {
   // Check cache first
   const cacheKey = (nameOrId + '').toLowerCase();
   if (pokemonCache[cacheKey]) {
@@ -28,10 +30,10 @@ export async function getCachedPokemon(nameOrId) {
     const data = await res.json();
     const formatted = formatPokemon(data);
     pokemonCache[cacheKey] = formatted;
-    pokemonCache[formatted.id] = formatted;
+    pokemonCache[formatted.id.toString()] = formatted;
     return formatted;
   } catch (err) {
-    console.warn(`Failed to fetch Pokémon: ${nameOrId}`, err.message);
+    console.warn(`Failed to fetch Pokémon: ${nameOrId}`, (err as Error).message);
     throw err;
   }
 }
@@ -40,14 +42,14 @@ export async function getCachedPokemon(nameOrId) {
  * Prefetch all Pokémon (up to a limit)
  * Returns a promise that resolves when done
  */
-export async function prefetchAllPokemon(limit = 1025) {
-  if (isCacheFetching) return cacheFetchPromise;
+export async function prefetchAllPokemon(limit: number = 1025): Promise<Pokemon[]> {
+  if (isCacheFetching && cacheFetchPromise) return cacheFetchPromise;
   if (pokemonArray.length > 100) {
     return pokemonArray;
   }
 
   isCacheFetching = true;
-  cacheFetchPromise = (async () => {
+  cacheFetchPromise = (async (): Promise<Pokemon[]> => {
     console.log(`[Cache] Starting prefetch of up to ${limit} Pokémon...`);
     const start = Date.now();
 
@@ -64,18 +66,18 @@ export async function prefetchAllPokemon(limit = 1025) {
       const batchSize = 50;
       for (let i = 0; i < pokemonList.length; i += batchSize) {
         const batch = pokemonList.slice(i, i + batchSize);
-        const promises = batch.map(p =>
+        const promises = batch.map((p: any) =>
           fetch(`${POKE_API_BASE}/${p.name}`)
             .then(r => r.ok ? r.json() : null)
             .then(data => {
               if (data) {
                 const formatted = formatPokemon(data);
-                pokemonCache[formatted.id] = formatted;
+                pokemonCache[formatted.id.toString()] = formatted;
                 pokemonCache[formatted.name] = formatted;
                 pokemonArray.push(formatted);
               }
             })
-            .catch(err => console.warn(`Failed to fetch ${p.name}:`, err.message))
+            .catch(err => console.warn(`Failed to fetch ${p.name}:`, (err as Error).message))
         );
         await Promise.all(promises);
         const progress = Math.min(i + batchSize, pokemonList.length);
@@ -84,10 +86,10 @@ export async function prefetchAllPokemon(limit = 1025) {
 
       // Sort by ID for consistent ordering
       pokemonArray.sort((a, b) => a.id - b.id);
-      
+
       console.log(`[Cache] Prefetch complete. Cached ${pokemonArray.length} unique Pokémon in ${Date.now() - start}ms`);
     } catch (err) {
-      console.error('[Cache] Prefetch failed:', err.message);
+      console.error('[Cache] Prefetch failed:', (err as Error).message);
     } finally {
       isCacheFetching = false;
     }
@@ -101,17 +103,17 @@ export async function prefetchAllPokemon(limit = 1025) {
 /**
  * Get all cached Pokémon as an array
  */
-export function getAllCachedPokemon() {
+export function getAllCachedPokemon(): Pokemon[] {
   return pokemonArray;
 }
 
 /**
  * Format raw PokéAPI data into our format
  */
-function formatPokemon(data) {
-  const stats = {};
+function formatPokemon(data: any): Pokemon {
+  const stats: Record<string, number> = {};
   if (data.stats) {
-    data.stats.forEach(s => {
+    data.stats.forEach((s: any) => {
       stats[s.stat.name] = s.base_stat;
     });
   }
@@ -130,14 +132,14 @@ function formatPokemon(data) {
       'special-defense': stats['special-defense'] || 0,
       speed: stats.speed || 0,
     },
-    types: data.types?.map(t => t.type.name) || [],
+    types: data.types?.map((t: any) => t.type.name) || [],
   };
 }
 
 /**
  * Search Pokémon by partial name (returns up to limit matches)
  */
-export function searchPokemon(query, limit = 50) {
+export function searchPokemon(query: string, limit: number = 50): Pokemon[] {
   const q = query.toLowerCase();
   return pokemonArray
     .filter(p => p.name.includes(q))
@@ -147,9 +149,9 @@ export function searchPokemon(query, limit = 50) {
 /**
  * Get random Pokémon(s)
  */
-export function getRandomPokemon(count = 1, excludeIds = []) {
+export function getRandomPokemon(count: number = 1, excludeIds: number[] = []): Pokemon[] {
   const available = pokemonArray.filter(p => !excludeIds.includes(p.id));
-  const result = [];
+  const result: Pokemon[] = [];
   for (let i = 0; i < count && available.length > 0; i++) {
     const idx = Math.floor(Math.random() * available.length);
     result.push(available[idx]);
@@ -161,10 +163,10 @@ export function getRandomPokemon(count = 1, excludeIds = []) {
 /**
  * Initialize cache on startup (wait for completion)
  */
-export async function initializeCache() {
+export async function initializeCache(): Promise<void> {
   try {
     await prefetchAllPokemon(1025);
   } catch (err) {
-    console.error('[Cache] Failed to initialize:', err.message);
+    console.error('[Cache] Failed to initialize:', (err as Error).message);
   }
 }
